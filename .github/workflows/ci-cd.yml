@@ -40,6 +40,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Debug AWS identity
+        run: aws sts get-caller-identity
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -101,15 +104,19 @@ jobs:
       # --- Deploy to EKS ---
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
-        
+
       - name: Debug AWS Identity
         run: aws sts get-caller-identity
 
       - name: Update kubeconfig
         run: |
+          mkdir -p $HOME/.kube
           aws eks update-kubeconfig \
             --name ${{ env.EKS_CLUSTER_NAME }} \
-            --region ${{ env.AWS_REGION }}
+            --region ${{ env.AWS_REGION }} \
+            --kubeconfig $HOME/.kube/config
+          echo "Kubeconfig created at $HOME/.kube/config"
+          kubectl cluster-info
 
       - name: Install Helm
         uses: azure/setup-helm@v4
