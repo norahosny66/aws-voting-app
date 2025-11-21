@@ -26,7 +26,7 @@ spec:
         - name: REDIS_HOST
           value: "{{ .Values.redis.host }}"
         - name: REDIS_PORT
-          value: "{{ .Values.redis.port }}"
+          value: "{{ .Values.redis.port | quote }}"
         resources:
           requests:
             cpu: {{ .Values.resources.requests.cpu }}
@@ -76,7 +76,7 @@ spec:
         - name: DB_HOST
           value: "{{ .Values.database.host }}"
         - name: DB_PORT
-          value: "{{ .Values.database.port }}"
+          value: "{{ .Values.database.port | quote }}"
         - name: DB_NAME
           value: "{{ .Values.database.name }}"
         - name: DB_USER
@@ -129,11 +129,11 @@ spec:
         - name: REDIS_HOST
           value: "{{ .Values.redis.host }}"
         - name: REDIS_PORT
-          value: "{{ .Values.redis.port }}"
+          value: "{{ .Values.redis.port | quote }}"
         - name: DB_HOST
           value: "{{ .Values.database.host }}"
         - name: DB_PORT
-          value: "{{ .Values.database.port }}"
+          value: "{{ .Values.database.port | quote }}"
         - name: DB_NAME
           value: "{{ .Values.database.name }}"
         - name: DB_USER
@@ -147,3 +147,98 @@ spec:
           limits:
             cpu: {{ .Values.resources.limits.cpu }}
             memory: {{ .Values.resources.limits.memory }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: votes
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U postgres
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
