@@ -1,0 +1,191 @@
+name: CI/CD Pipeline to AWS EKS
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: aws-voting-app-eks
+  HELM_CHART_PATH: k8s/helm/aws-voting-app
+  APP_VERSION: ${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+
+    steps:
+      - name: Checkout Infrastructure Repository
+        uses: actions/checkout@v4
+
+      - name: Clone Application Code
+        uses: actions/checkout@v4
+        with:
+          repository: code-quests/devops
+          path: app-code
+
+      #  NEW: Use OIDC instead of AWS keys
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # --- Build and Push Images ---
+      - name: Build and Push Vote Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-code/vote
+          push: true
+          tags: |
+            ${{ secrets.ECR_VOTE_REPO }}:${{ env.APP_VERSION }}
+            ${{ secrets.ECR_VOTE_REPO }}:latest
+
+      - name: Build and Push Result Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-code/result
+          push: true
+          tags: |
+            ${{ secrets.ECR_RESULT_REPO }}:${{ env.APP_VERSION }}
+            ${{ secrets.ECR_RESULT_REPO }}:latest
+
+      - name: Build and Push Worker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-code/worker
+          push: true
+          tags: |
+            ${{ secrets.ECR_WORKER_REPO }}:${{ env.APP_VERSION }}
+            ${{ secrets.ECR_WORKER_REPO }}:latest
+
+      - name: Build and Push Seed-Data Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-code/seed-data
+          push: true
+          tags: |
+            ${{ secrets.ECR_SEED_REPO }}:${{ env.APP_VERSION }}
+            ${{ secrets.ECR_SEED_REPO }}:latest
+
+      # --- Security Scanning ---
+      - name: Run Trivy scan on Vote Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.ECR_VOTE_REPO }}:${{ env.APP_VERSION }}
+          format: 'sarif'
+          output: 'trivy-vote-results.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-vote-results.sarif'
+
+      # --- Deploy to EKS ---
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ env.EKS_CLUSTER_NAME }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Add Helm Repositories
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
+      # --- Deploy Monitoring (if not already installed) ---
+      - name: Check if Prometheus is installed
+        run: |
+          helm list -n monitoring | grep -q prometheus || echo "INSTALL_MONITORING=true" >> $GITHUB_ENV
+
+      - name: Deploy Monitoring Stack
+        if: env.INSTALL_MONITORING == 'true'
+        run: |
+          helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --values k8s/helm/monitoring-values.yaml \
+            --atomic \
+            --wait \
+            --timeout 5m
+
+      # --- Deploy Application ---
+      - name: Deploy Voting App with Helm
+        run: |
+          helm dependency update ${{ env.HELM_CHART_PATH }}
+          helm upgrade --install voting-app ${{ env.HELM_CHART_PATH }} \
+            --namespace default \
+            --set image.tag=${{ env.APP_VERSION }} \
+            --set image.repository=${{ secrets.ECR_VOTE_REPO }} \
+            --atomic \
+            --wait \
+            --timeout 10m
+
+      # --- Smoke Tests ---
+      - name: Wait for Ingress to be Ready
+        run: |
+          kubectl wait --for=condition=ready pod \
+            -l app=vote \
+            -n default \
+            --timeout=300s
+
+      - name: Get Ingress IP
+        id: ingress
+        run: |
+          INGRESS_IP=$(kubectl get ingress voting-app-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || echo "localhost")
+          echo "ingress_host=$INGRESS_IP" >> $GITHUB_OUTPUT
+
+      - name: Smoke Test - Vote Endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -f http://${{ steps.ingress.outputs.ingress_host }}:8080 2>/dev/null; then
+              echo "Vote service is up"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting for vote service..."
+            sleep 10
+          done
+          echo "Vote service failed to respond"
+          exit 1
+
+      - name: Smoke Test - Result Endpoint
+        run: |
+          curl -f http://${{ steps.ingress.outputs.ingress_host }}:8081 || exit 1
+
+      # --- Rollback on Failure (Optional) ---
+      - name: Rollback on Failure
+        if: failure()
+        run: |
+          echo " Deployment failed, rolling back..."
+          helm rollback voting-app -n default
+
+      - name: Notify Deployment Status
+        if: always()
+        run: |
+          echo "Deployment Status: ${{ job.status }}"
+          echo "App Version: ${{ env.APP_VERSION }}"
+          echo "Commit: ${{ github.sha }}"
