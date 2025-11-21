@@ -115,8 +115,8 @@ jobs:
           file: ./build-context/result/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-result:${{ env.APP_VERSION }}
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-result:latest
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-result:${{ env.APP_VERSION }}
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-result:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -127,8 +127,8 @@ jobs:
           file: ./build-context/worker/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-worker:${{ env.APP_VERSION }}
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-worker:latest
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-worker:${{ env.APP_VERSION }}
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-worker:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -139,8 +139,8 @@ jobs:
           file: ./build-context/seed-data/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-seed-data:${{ env.APP_VERSION }}
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-seed-data:latest
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-seed-data:${{ env.APP_VERSION }}
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-seed-data:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
