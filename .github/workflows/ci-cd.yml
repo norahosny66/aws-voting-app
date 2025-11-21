@@ -41,7 +41,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Debug AWS identity
-        run: aws sts get-caller-identity
+        run:    
+          set -x
+          echo "Checking assumed role..."
+          aws sts get-caller-identity
 
       - name: Login to Amazon ECR
         id: login-ecr
