@@ -14,8 +14,7 @@ COPY generate-votes.sh .
 
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt && \
-    chmod +x generate-votes.sh
+RUN chmod +x generate-votes.sh
 
 # Create non-root user (use UID 1003 to avoid conflicts)
 RUN useradd -m -u 1003 appuser && \
