@@ -213,8 +213,8 @@ jobs:
             --set image.seedData.repository=aws-voting-app-seed-data \
             --atomic \
             --wait \
-            --timeout 10m \
-            --verbose
+            --timeout 10m 
+            
           
           echo "✅ App deployed successfully"
           echo "deploy_success=true" >> $GITHUB_OUTPUT
