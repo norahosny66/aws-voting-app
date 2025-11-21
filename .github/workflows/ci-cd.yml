@@ -101,6 +101,9 @@ jobs:
       # --- Deploy to EKS ---
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
+        
+      - name: Debug AWS Identity
+        run: aws sts get-caller-identity
 
       - name: Update kubeconfig
         run: |
