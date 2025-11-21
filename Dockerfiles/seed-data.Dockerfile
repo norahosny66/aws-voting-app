@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy seed data scripts
 COPY make-data.py .
 COPY generate-votes.sh .
-COPY requirements.txt .
+
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt && \
