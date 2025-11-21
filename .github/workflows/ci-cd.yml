@@ -1,68 +1,92 @@
-name: Build & Deploy to AWS EKS
+name: Build & Deploy to AWS EKS (Corrected - Private Dockerfiles)
 
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
   EKS_CLUSTER_NAME: aws-voting-app-eks
   HELM_CHART_PATH: k8s/helm/aws-voting-app
+  APP_VERSION: ${{ github.sha }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    
     permissions:
       id-token: write
       contents: read
 
     steps:
-      # ✅ Step 1: Checkout YOUR infrastructure repo (has Dockerfiles)
-      - name: Checkout Infrastructure Repository (with Dockerfiles)
+      # ✅ Step 1: Checkout YOUR infrastructure repo (contains Dockerfiles + Helm + Terraform)
+      - name: Checkout Infrastructure Repository
         uses: actions/checkout@v4
+        with:
+          path: infra
 
-      # ✅ Step 2: Clone application repo (has source code)
+      # ✅ Step 2: Clone application source code from public repo
       - name: Clone Application Source Code
         uses: actions/checkout@v4
         with:
           repository: code-quests/devops
           path: app-source
 
-      # ✅ Step 3: Copy source files to build context
+      # ✅ Step 3: Prepare build context by combining Dockerfiles + source code
       - name: Prepare Build Context
         run: |
-          echo "📁 Preparing build context..."
+          echo "📁 Preparing build context by combining YOUR Dockerfiles with source code..."
           
-          # Copy vote source to build dir
+          # Create build directories
           mkdir -p build-context/vote
-          cp -r app-source/vote/* build-context/vote/
-          cp docker/vote.Dockerfile build-context/vote/Dockerfile
-          
-          # Copy result source to build dir
           mkdir -p build-context/result
-          cp -r app-source/result/* build-context/result/
-          cp docker/result.Dockerfile build-context/result/Dockerfile
-          
-          # Copy worker source to build dir
           mkdir -p build-context/worker
-          cp -r app-source/worker/* build-context/worker/
-          cp docker/worker.Dockerfile build-context/worker/Dockerfile
-          
-          # Copy seed-data source to build dir
           mkdir -p build-context/seed-data
-          cp -r app-source/seed-data/* build-context/seed-data/
-          cp docker/seed-data.Dockerfile build-context/seed-data/Dockerfile
           
-          echo "✅ Build context prepared"
+          # Vote: Copy source code + YOUR Dockerfile
+          cp -r app-source/vote/* build-context/vote/ || true
+          cp infra/Dockerfiles/vote.Dockerfile build-context/vote/Dockerfile
+          echo "✅ Vote: Source + Dockerfile combined"
+          
+          # Result: Copy source code + YOUR Dockerfile
+          cp -r app-source/result/* build-context/result/ || true
+          cp infra/Dockerfiles/result.Dockerfile build-context/result/Dockerfile
+          echo "✅ Result: Source + Dockerfile combined"
+          
+          # Worker: Copy source code + YOUR Dockerfile
+          cp -r app-source/worker/* build-context/worker/ || true
+          cp infra/Dockerfiles/worker.Dockerfile build-context/worker/Dockerfile
+          echo "✅ Worker: Source + Dockerfile combined"
+          
+          # Seed-Data: Copy source code + YOUR Dockerfile
+          cp -r app-source/seed-data/* build-context/seed-data/ || true
+          cp infra/Dockerfiles/seed-data.Dockerfile build-context/seed-data/Dockerfile
+          echo "✅ Seed-Data: Source + Dockerfile combined"
+          
+          echo "📋 Build context structure:"
+          ls -la build-context/vote/Dockerfile
+          ls -la build-context/result/Dockerfile
+          ls -la build-context/worker/Dockerfile
+          ls -la build-context/seed-data/Dockerfile
 
+      # ✅ Step 4: Configure AWS Credentials
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          
+
+      - name: Verify AWS Credentials
+        run: |
+          echo "✅ Checking AWS credentials..."
+          aws sts get-caller-identity
+          echo "✅ AWS credentials verified"
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -71,15 +95,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ✅ Build using YOUR Dockerfiles from docker/ directory
+      # ✅ Build Images Using YOUR Private Dockerfiles
       - name: Build and Push Vote Image
         uses: docker/build-push-action@v5
         with:
           context: ./build-context/vote
-          dockerfile: ./build-context/vote/Dockerfile      # ✅ Your Dockerfile
+          file: ./build-context/vote/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:${{ env.APP_VERSION }}
             ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -88,10 +112,10 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./build-context/result
-          dockerfile: ./build-context/result/Dockerfile    # ✅ Your Dockerfile
+          file: ./build-context/result/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-result:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/voting-app-result:${{ env.APP_VERSION }}
             ${{ steps.login-ecr.outputs.registry }}/voting-app-result:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -100,10 +124,10 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./build-context/worker
-          dockerfile: ./build-context/worker/Dockerfile    # ✅ Your Dockerfile
+          file: ./build-context/worker/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-worker:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/voting-app-worker:${{ env.APP_VERSION }}
             ${{ steps.login-ecr.outputs.registry }}/voting-app-worker:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -112,65 +136,196 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./build-context/seed-data
-          dockerfile: ./build-context/seed-data/Dockerfile # ✅ Your Dockerfile
+          file: ./build-context/seed-data/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-seed-data:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/voting-app-seed-data:${{ env.APP_VERSION }}
             ${{ steps.login-ecr.outputs.registry }}/voting-app-seed-data:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ✅ Security Scanning
       - name: Run Trivy Security Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:${{ github.sha }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:${{ env.APP_VERSION }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
         continue-on-error: true
 
-      - name: Upload Trivy Results
+      - name: Upload Trivy Results to GitHub
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
 
+      # ✅ Deploy to EKS
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
 
       - name: Update kubeconfig
         run: |
+          echo "📋 Updating kubeconfig for EKS cluster..."
           aws eks update-kubeconfig \
             --region ${{ env.AWS_REGION }} \
-            --name ${{ env.EKS_CLUSTER_NAME }}
+            --name ${{ env.EKS_CLUSTER_NAME }} \
+            --verbose
+          echo "✅ Kubeconfig updated"
+
+      - name: Verify Cluster Connection
+        run: |
+          echo "📋 Verifying cluster connection..."
+          kubectl cluster-info
+          kubectl get nodes
+          echo "✅ Cluster connection verified"
 
       - name: Install Helm
         uses: azure/setup-helm@v4
+        with:
+          version: 'v3.13.0'
 
-      - name: Deploy to EKS with Helm
+      - name: Add Helm Repositories
         run: |
-          helm upgrade --install voting-app ${{ env.HELM_CHART_PATH }} \
+          echo "📦 Adding Helm repositories..."
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+          echo "✅ Helm repos added"
+
+      - name: Deploy Voting App with Helm
+        id: helm-deploy
+        run: |
+          echo "🚀 Deploying voting app with Helm..."
+          
+          helm dependency update infra/${{ env.HELM_CHART_PATH }} || true
+          
+          helm upgrade --install voting-app infra/${{ env.HELM_CHART_PATH }} \
             --namespace default \
             --create-namespace \
-            --set image.tag=${{ github.sha }} \
+            --set image.tag=${{ env.APP_VERSION }} \
+            --set image.registry=${{ steps.login-ecr.outputs.registry }} \
+            --set image.vote.repository=voting-app-vote \
+            --set image.result.repository=voting-app-result \
+            --set image.worker.repository=voting-app-worker \
+            --set image.seedData.repository=voting-app-seed-data \
             --atomic \
             --wait \
-            --timeout 10m
+            --timeout 10m \
+            --verbose
+          
+          echo "✅ App deployed successfully"
+          echo "deploy_success=true" >> $GITHUB_OUTPUT
 
-      - name: Verify Deployment
+      - name: Check Deployment Status
         run: |
+          echo "📊 Checking deployment status..."
+          kubectl get deployments -n default
+          echo ""
+          kubectl get pods -n default -o wide
+          echo ""
+          kubectl get svc -n default
+
+      - name: Wait for Pods Ready
+        run: |
+          echo "⏳ Waiting for pods to be ready..."
+          
           kubectl wait --for=condition=ready pod \
             -l app=vote \
             -n default \
-            --timeout=300s
+            --timeout=300s || { echo "⚠️ Vote pods not ready"; exit 1; }
+          
+          kubectl wait --for=condition=ready pod \
+            -l app=result \
+            -n default \
+            --timeout=300s || { echo "⚠️ Result pods not ready"; exit 1; }
+          
+          echo "✅ All pods are ready"
 
-      - name: Smoke Tests
+      # ✅ Smoke Tests
+      - name: Smoke Test - Vote Service
+        timeout-minutes: 5
         run: |
-          kubectl port-forward -n default svc/voting-app-vote 8080:80 &
+          echo "🧪 Testing vote service..."
+          
+          VOTE_PORT=$(kubectl get svc voting-app-vote -n default -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "8080")
+          
+          kubectl port-forward -n default svc/voting-app-vote 8080:$VOTE_PORT &
+          PF_PID=$!
           sleep 2
-          curl -f http://localhost:8080/ || exit 1
-          echo "✅ Deployment successful"
+          
+          for i in {1..20}; do
+            if curl -f http://localhost:8080/ -s -o /dev/null; then
+              echo "✅ Vote service is healthy"
+              kill $PF_PID 2>/dev/null || true
+              exit 0
+            fi
+            echo "Attempt $i/20 - waiting for vote service..."
+            sleep 3
+          done
+          
+          kill $PF_PID 2>/dev/null || true
+          echo "❌ Vote service failed health check"
+          exit 1
 
+      - name: Smoke Test - Result Service
+        timeout-minutes: 5
+        run: |
+          echo "🧪 Testing result service..."
+          
+          RESULT_PORT=$(kubectl get svc voting-app-result -n default -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "8081")
+          
+          kubectl port-forward -n default svc/voting-app-result 8081:$RESULT_PORT &
+          PF_PID=$!
+          sleep 2
+          
+          for i in {1..20}; do
+            if curl -f http://localhost:8081/ -s -o /dev/null; then
+              echo "✅ Result service is healthy"
+              kill $PF_PID 2>/dev/null || true
+              exit 0
+            fi
+            echo "Attempt $i/20 - waiting for result service..."
+            sleep 3
+          done
+          
+          kill $PF_PID 2>/dev/null || true
+          echo "❌ Result service failed health check"
+          exit 1
+
+      # ✅ Rollback on Failure
       - name: Rollback on Failure
-        if: failure()
-        run: helm rollback voting-app -n default --wait
+        if: failure() && steps.helm-deploy.outputs.deploy_success == 'true'
+        run: |
+          echo "⚠️ Deployment failed, rolling back..."
+          helm rollback voting-app -n default --wait --timeout 5m || echo "⚠️ Rollback completed with warnings"
+          echo "✅ Rollback completed"
+
+      # ✅ Final Status
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "========================================="
+          echo "🎯 Deployment Summary"
+          echo "========================================="
+          echo "Status: ${{ job.status }}"
+          echo "App Version: ${{ env.APP_VERSION }}"
+          echo "Built with: YOUR private Dockerfiles"
+          echo "Source from: code-quests/devops (read-only)"
+          echo "Timestamp: $(date -u)"
+          echo "========================================="
+          
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment succeeded!"
+            echo ""
+            echo "Architecture:"
+            echo "  - YOUR Dockerfiles: Private (Dockerfiles/ directory)"
+            echo "  - Application Source: code-quests/devops (read-only)"
+            echo "  - CI/CD: Combined both for building"
+            echo "  - Result: Production images in ECR"
+          else
+            echo "❌ Deployment failed"
+            kubectl get pods -n default -o wide || true
+          fi
