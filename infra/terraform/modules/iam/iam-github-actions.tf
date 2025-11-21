@@ -23,7 +23,7 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:YOUR_GITHUB_ORG/YOUR_REPO:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub" = "repo:norahosny66/aws-voting-app:ref:refs/heads/main"
             # Allow all branches (optional):
             # "token.actions.githubusercontent.com:sub" = "repo:YOUR_GITHUB_ORG/YOUR_REPO:*"
           }
@@ -68,7 +68,7 @@ resource "aws_iam_role_policy" "github_actions_policy" {
         Action = [
           "sts:AssumeRole"
         ]
-        Resource = "arn:aws:iam::ACCOUNT_ID:role/aws-voting-app-eks-*"
+        Resource = "arn:aws:iam::175829710418:role/aws-voting-app-eks-*"
       }
     ]
   })

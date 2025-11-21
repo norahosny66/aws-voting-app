@@ -32,6 +32,11 @@ module "ecr" {
   repositories = ["vote", "result", "worker", "seed-data"]
 }
 
+module "iam" {
+  source = "./modules/iam"
+
+}
+
 output "kubeconfig" {
   description = "The kubeconfig file content"
   value       = module.eks.kubeconfig
@@ -45,4 +50,8 @@ output "ecr_repositories" {
 
 output "public_subnets" {
   value = module.vpc.public_subnets
+}
+
+output "github_actions_role_arn" {
+  value = module.iam.github_actions_role_arn
 }
