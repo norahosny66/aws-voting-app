@@ -103,8 +103,8 @@ jobs:
           file: ./build-context/vote/Dockerfile
           push: true
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:${{ env.APP_VERSION }}
-            ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:latest
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-vote:${{ env.APP_VERSION }}
+            ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-vote:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -148,7 +148,7 @@ jobs:
       - name: Run Trivy Security Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/voting-app-vote:${{ env.APP_VERSION }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/aws-voting-app-vote:${{ env.APP_VERSION }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'HIGH,CRITICAL'
@@ -207,10 +207,10 @@ jobs:
             --create-namespace \
             --set image.tag=${{ env.APP_VERSION }} \
             --set image.registry=${{ steps.login-ecr.outputs.registry }} \
-            --set image.vote.repository=voting-app-vote \
-            --set image.result.repository=voting-app-result \
-            --set image.worker.repository=voting-app-worker \
-            --set image.seedData.repository=voting-app-seed-data \
+            --set image.vote.repository=aws-voting-app-vote \
+            --set image.result.repository=aws-voting-app-result \
+            --set image.worker.repository=aws-voting-app-worker \
+            --set image.seedData.repository=aws-voting-app-seed-data \
             --atomic \
             --wait \
             --timeout 10m \
