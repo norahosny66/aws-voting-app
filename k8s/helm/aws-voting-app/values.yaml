@@ -13,9 +13,9 @@ resources:
     memory: "512Mi"
 
 database:
-  host: "postgres"
+  host: "db"
   port: 5432
-  name: "votes"
+  name: "postgres"
   user: "postgres"
   password: "postgres"
 

@@ -68,7 +68,7 @@ spec:
           image: "{{ .Values.image.registry }}/{{ .Values.result.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           ports:
-            - containerPort: 8081
+            - containerPort: 4000
           env:
             - name: DB_HOST
               value: "{{ .Values.database.host }}"
@@ -90,13 +90,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: 8081
+              port: 4000
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /
-              port: 8081
+              port: 4000
             initialDelaySeconds: 5
             periodSeconds: 5
 ---
