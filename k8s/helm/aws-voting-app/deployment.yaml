@@ -4,7 +4,6 @@ metadata:
   name: voting-app-vote
   labels:
     app: vote
-    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.vote.replicaCount }}
   selector:
@@ -21,7 +20,6 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: 80
-          name: http
         env:
         - name: REDIS_HOST
           value: "{{ .Values.redis.host }}"
@@ -54,7 +52,6 @@ metadata:
   name: voting-app-result
   labels:
     app: result
-    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.result.replicaCount }}
   selector:
@@ -71,7 +68,6 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: 80
-          name: http
         env:
         - name: DB_HOST
           value: "{{ .Values.database.host }}"
@@ -110,7 +106,6 @@ metadata:
   name: voting-app-worker
   labels:
     app: worker
-    release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.worker.replicaCount }}
   selector:
@@ -172,16 +167,16 @@ spec:
         - containerPort: 5432
         env:
         - name: POSTGRES_DB
-          value: votes
+          value: "votes"
         - name: POSTGRES_PASSWORD
-          value: postgres
+          value: "postgres"
         resources:
           requests:
-            cpu: 100m
-            memory: 256Mi
+            cpu: "100m"
+            memory: "256Mi"
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: "500m"
+            memory: "512Mi"
         livenessProbe:
           exec:
             command:
@@ -223,11 +218,11 @@ spec:
         - containerPort: 6379
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: "50m"
+            memory: "64Mi"
           limits:
-            cpu: 200m
-            memory: 256Mi
+            cpu: "200m"
+            memory: "256Mi"
         livenessProbe:
           exec:
             command:

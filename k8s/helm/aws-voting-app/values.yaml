@@ -1,43 +1,36 @@
 # Default values for aws-voting-app
 image:
-  registry: ""  # Will be set by CI/CD (e.g., 123456789.dkr.ecr.us-east-1.amazonaws.com)
+  registry: "123456789.dkr.ecr.us-east-1.amazonaws.com"
   tag: "latest"
   pullPolicy: IfNotPresent
 
-service:
-  type: LoadBalancer
-
 resources:
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: "100m"
+    memory: "128Mi"
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: "500m"
+    memory: "512Mi"
 
 database:
-  host: postgres
+  host: "postgres"
   port: 5432
-  name: votes
-  user: postgres
-  password: postgres
+  name: "votes"
+  user: "postgres"
+  password: "postgres"
 
 redis:
-  host: redis
+  host: "redis"
   port: 6379
 
 vote:
-  replicaCount: 2
-  repository: aws-voting-app-vote
+  replicaCount: 1
+  repository: "voting-app-vote"
 
 result:
-  replicaCount: 2
-  repository: aws-voting-app-result
+  replicaCount: 1
+  repository: "voting-app-result"
 
 worker:
   replicaCount: 1
-  repository: aws-voting-app-worker
-
-seedData:
-  repository: aws-voting-app-seed-data
-  enabled: true
+  repository: "voting-app-worker"
