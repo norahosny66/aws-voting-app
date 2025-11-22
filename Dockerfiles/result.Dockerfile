@@ -9,10 +9,7 @@ RUN npm ci --only=production && npm cache clean --force
 # Install Python, pip, and build dependencies for Python packages
 RUN apk add --no-cache python3 py3-pip build-base libffi-dev openssl-dev
 
-# Upgrade pip (optional but recommended)
-RUN pip3 install --upgrade pip
-
-# Install Python packages
+# Install Python packages (no pip upgrade)
 RUN pip3 install --no-cache-dir Flask==2.3.3 redis==5.2.0 requests==2.32.0
 
 # Create non-root user
