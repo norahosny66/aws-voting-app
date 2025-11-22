@@ -156,10 +156,8 @@ jobs:
             --namespace default \
             --create-namespace \
             --set image.tag=${{ env.APP_VERSION }} \
-            --set image.registry=${{ steps.login-ecr.outputs.registry }} \
-            --atomic \
-            --wait \
-            --timeout 10m
+            --set image.registry=${{ steps.login-ecr.outputs.registry }} 
+            
           
           echo "✅ Helm deployment succeeded"
           echo "deploy_success=true" >> $GITHUB_OUTPUT
