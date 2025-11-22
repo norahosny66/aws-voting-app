@@ -207,10 +207,10 @@ jobs:
             --create-namespace \
             --set image.tag=${{ env.APP_VERSION }} \
             --set image.registry=${{ steps.login-ecr.outputs.registry }} \
-            --set image.vote.repository=aws-voting-app-vote \
-            --set image.result.repository=aws-voting-app-result \
-            --set image.worker.repository=aws-voting-app-worker \
-            --set image.seedData.repository=aws-voting-app-seed-data \
+            --set vote.repository=aws-voting-app-vote \
+            --set result.repository=aws-voting-app-result \
+            --set worker.repository=aws-voting-app-worker \
+            --set seedData.repository=aws-voting-app-seed-data \
             --atomic \
             --wait \
             --timeout 10m 
