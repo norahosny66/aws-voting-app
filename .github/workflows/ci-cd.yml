@@ -32,7 +32,7 @@ jobs:
       - name: Clone Application Source Code
         uses: actions/checkout@v4
         with:
-          repository: code-quests/devops
+          repository: norahosny66/devops
           path: app-source
 
       - name: Prepare Build Context
