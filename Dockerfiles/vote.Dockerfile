@@ -15,8 +15,8 @@ COPY --chown=appuser:appuser . .
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import socket; socket.create_connection(('localhost', 80), timeout=2)"
+  CMD python -c "import socket; socket.create_connection(('localhost', 8080), timeout=2)"
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["python", "app.py"]
