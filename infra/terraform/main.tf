@@ -31,10 +31,82 @@ module "ecr" {
   project_name = var.project_name
   repositories = ["vote", "result", "worker", "seed-data"]
 }
-
 module "iam" {
   source = "./modules/iam"
+  cluster_oidc_issuer_url = module.eks.oidc_provider_url
+  # ... other args ...
+  cluster_name        = module.eks.cluster_name
+  
+  oidc_provider_arn   = module.eks.oidc_provider_arn
 
+  # ... any others required ...
+}
+
+resource "kubernetes_service_account" "alb_controller" {
+  metadata {
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = module.iam.alb_controller_role_arn # Or aws_iam_role.alb_controller.arn if defined in root
+    }
+  }
+  
+  depends_on = [ module.eks, module.iam ] # if using modules, or the actual resources
+}
+
+
+resource "helm_release" "alb_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.7.1" # Or latest compatible with your EKS/K8s version
+
+  set {
+    name  = "clusterName"
+    value = module.eks.cluster_name
+  }
+  set {
+    name  = "region"
+    value = var.aws_region
+  }
+  set {
+    name  = "vpcId"
+    value = module.vpc.vpc_id
+  }
+  set {
+    name  = "serviceAccount.create"
+    value = false
+  }
+  set {
+    name  = "serviceAccount.name"
+    value = kubernetes_service_account.alb_controller.metadata[0].name
+  }
+
+  depends_on = [
+    kubernetes_service_account.alb_controller
+  ]
+}
+
+data "aws_eks_cluster" "this" {
+  name = module.eks.cluster_name
+}
+
+data "aws_eks_cluster_auth" "this" {
+  name = module.eks.cluster_name
+}
+
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.this.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.this.token
+}
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.this.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.this.token
+  }
 }
 
 output "kubeconfig" {
