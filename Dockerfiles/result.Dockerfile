@@ -6,6 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production && \
     npm cache clean --force
+RUN pip install --no-cache-dir Flask==2.3.3 redis==5.2.0 requests==2.32.0
 
 # Create non-root user (Alpine uses different approach)
 # Don't use GID 1000 - it's already used by node:18-alpine

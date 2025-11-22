@@ -2,6 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+RUN pip install --no-cache-dir Flask==2.3.3 redis==5.2.0 requests==2.32.0
 
 # Create non-root user (use different UID to avoid conflicts)
 RUN useradd -m -u 1001 appuser && \
