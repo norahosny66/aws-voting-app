@@ -25,12 +25,12 @@ redis:
 
 vote:
   replicaCount: 1
-  repository: "voting-app-vote"
+  repository: "aws-voting-app-vote"
 
 result:
   replicaCount: 1
-  repository: "voting-app-result"
+  repository: "aws-voting-app-result"
 
 worker:
   replicaCount: 1
-  repository: "voting-app-worker"
+  repository: "aws-voting-app-worker"
